@@ -1,3 +1,5 @@
+import subprocess
+import sys
 from pathlib import Path
 
 # from tkinter import *
@@ -5,12 +7,25 @@ from pathlib import Path
 from tkinter import Tk, Canvas, Entry, Text, Button, PhotoImage
 
 
+# Compute paths relative to this script's location (works on any device)
 OUTPUT_PATH = Path(__file__).parent
-ASSETS_PATH = OUTPUT_PATH / Path(r"C:\Users\Jheydee\Downloads\Programming\Python\FinalProject\Habit Track\LoginUI\New folder\build\assets\frame0")
+ASSETS_PATH = OUTPUT_PATH / "assets" / "frame0"
 
 
 def relative_to_assets(path: str) -> Path:
     return ASSETS_PATH / Path(path)
+
+def open_main():
+    window.destroy()         # close login window
+
+    # launch MainUI as a separate process
+    # Compute path relative to this script (project root is 3 levels up: build -> New folder -> LoginUI -> Habit Track)
+    script_dir = Path(__file__).resolve().parent.parent.parent.parent
+    mainui_path = script_dir / "MeynYuay" / "MainUI.py"
+    mainui_cwd = script_dir / "MeynYuay"
+
+    Popen = subprocess.Popen
+    Popen([sys.executable, str(mainui_path)], cwd=str(mainui_cwd))
 
 
 window = Tk()
@@ -36,7 +51,7 @@ button_1 = Button(
     image=button_image_1,
     borderwidth=0,
     highlightthickness=0,
-    command=lambda: print("button_1 clicked"),
+    command=open_main,
     relief="flat"
 )
 button_1.place(
@@ -77,6 +92,7 @@ button_3.place(
     width=300.0,
     height=72.0
 )
+
 
 canvas.create_rectangle(
     -1.0,

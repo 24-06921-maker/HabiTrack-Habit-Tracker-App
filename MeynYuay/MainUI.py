@@ -2,22 +2,36 @@ import tkinter as TikiTiki
 import tkinter.ttk as ttk
 import tkinter.messagebox as messagebox
 import math
+import pandas as pd
+import sqlite3
+from pathlib import Path
+
+# First define SCRIPT_DIR
+SCRIPT_DIR = Path(__file__).resolve().parent
+
+# Now create the Database folder path
+DATABASE_DIR = SCRIPT_DIR / "Database"
+DATABASE_DIR.mkdir(exist_ok=True)  # auto-create folder if missing
+
+CSV_PATH = DATABASE_DIR / "habits.csv"
+JSON_PATH = DATABASE_DIR / "habits.json"
+DB_PATH   = DATABASE_DIR / "habits_pandas.db"
+
+## Debugging: print paths
+print("SCRIPT_DIR =", SCRIPT_DIR)
+print("CSV_PATH   =", CSV_PATH)
+print("JSON_PATH  =", JSON_PATH)
+print("DB_PATH    =", DB_PATH)
 
 window = TikiTiki.Tk()
 window.title("Habit Tracker Main UI")
 
 HABITS_PER_PAGE = 3
 
-# Sample Habits Data
-habits = [
-    {"name": "Sample Habit", "done": False},
-    {"name": "Sample Habit", "done": True},
-    {"name": "Sample Habit", "done": False},
-    {"name": "Sample Habit", "done": True},
-    {"name": "Sample Habit", "done": False},
-    {"name": "Sample Habit", "done": True},
-    {"name": "Sample Habit", "done": False},
-]
+# Habits list (will be loaded from CSV at startup)
+habits = []  # start empty; load_habits_csv() will populate it if CSV exists
+
+
 
 # Pagination state
 current_page = 0
@@ -27,24 +41,102 @@ total_pages = max(1, math.ceil(len(habits) / HABITS_PER_PAGE))
 window.geometry("600x750")
 window.resizable(False, False)
 
-# ==== Load checkbox images ====
-# Make sure these paths exist or adjust them
-checked_img = TikiTiki.PhotoImage(file="ButtonUI/checked.png").subsample(2, 2)
-unchecked_img = TikiTiki.PhotoImage(file="ButtonUI/uncheck.png").subsample(2, 2)
+# ==== Load images using absolute paths ====
+# Compute the directory where this script is located
+SCRIPT_DIR = Path(__file__).resolve().parent
+BUTTONUI_DIR = SCRIPT_DIR / "ButtonUI"
 
-# ==== Load pagination arrow images (change these paths) ====
-left_arrow_img = TikiTiki.PhotoImage(file="ButtonUI/left.png").subsample(2, 2)
-right_arrow_img = TikiTiki.PhotoImage(file="ButtonUI/right.png").subsample(2, 2)
 
-# ==== Load delete (trash) image ====
-delete_img = TikiTiki.PhotoImage(file="ButtonUI/checked.png").subsample(2, 2)
+
+
+## Load habits from CSV file 
+def load_habits_csv():
+   
+    global habits, total_pages, current_page
+
+    # If file not present, nothing to load
+    if not CSV_PATH.exists():
+        return
+
+    try:
+        df = pd.read_csv(CSV_PATH)
+
+        # Basic validation: must have 'name'
+        if "name" not in df.columns:
+            print("habits.csv missing 'name' column — skipping load.")
+            return
+
+        # If position exists, restore original order
+        if "position" in df.columns:
+            df = df.sort_values("position", ignore_index=True)
+
+        # Build the in-memory list: convert done -> bool
+        loaded = []
+        for _, row in df.iterrows():
+            name = row.get("name", "")
+            done_val = row.get("done", 0)
+            # handle strings ("True"/"False") or numeric 0/1 — be permissive
+            done = False
+            if isinstance(done_val, str):
+                done = done_val.strip().lower() in ("1", "true", "yes", "y")
+            else:
+                try:
+                    done = bool(int(done_val))
+                except Exception:
+                    done = False
+            loaded.append({"name": str(name), "done": done})
+
+        # Replace the global habits and fix pagination state
+        habits = loaded
+        total_pages = max(1, math.ceil(len(habits) / HABITS_PER_PAGE))
+        # clamp current_page if necessary
+        if current_page >= total_pages:
+            current_page = max(0, total_pages - 1)
+
+        print(f"Loaded {len(habits)} habits from {CSV_PATH}")
+
+    except Exception as e:
+        # show a non-blocking console warning and a user popup
+        print("Error loading habits CSV:", e)
+        messagebox.showerror("Load error", f"Could not load habits from CSV:\n{e}")
+
+
+
+
+
+load_habits_csv()
+
+
+## Loading the images for Button UI
+def load_image(filename, subsample_x=2, subsample_y=2):
+    """Load an image from ButtonUI folder. Return None if not found."""
+    path = BUTTONUI_DIR / filename
+    if not path.exists():
+        print(f"Warning: Image not found: {path}")
+        return None
+    try:
+        img = TikiTiki.PhotoImage(file=str(path))
+        return img.subsample(subsample_x, subsample_y)
+    except Exception as e:
+        print(f"Error loading {filename}: {e}")
+        return None
+
+checked_img = load_image("checked.png", 2, 2)
+unchecked_img = load_image("uncheck.png", 2, 2)
+left_arrow_img = load_image("left.png", 2, 2)
+right_arrow_img = load_image("right.png", 2, 2)
+delete_img = load_image("delete.png", 3, 3)
+
+if not all([checked_img, unchecked_img, left_arrow_img, right_arrow_img, delete_img]):
+    print(f"\nSome images are missing. Expected them in: {BUTTONUI_DIR}")
+    print("Files needed: checked.png, uncheck.png, left.png, right.png, delete.png")
 
 # Keep references so garbage collection doesn't drop them
-window.checked_img = checked_img
-window.unchecked_img = unchecked_img
-window.left_arrow_img = left_arrow_img
-window.right_arrow_img = right_arrow_img
-window.delete_img = delete_img
+window.checked_img = checked_img if checked_img else None
+window.unchecked_img = unchecked_img if unchecked_img else None
+window.left_arrow_img = left_arrow_img if left_arrow_img else None
+window.right_arrow_img = right_arrow_img if right_arrow_img else None
+window.delete_img = delete_img if delete_img else None
 
 # Main Frame
 main_frame = TikiTiki.Frame(window, bg="#ECF2FA")
@@ -165,7 +257,7 @@ def render_habits():
             bd=0,
             cursor="hand2"
         )
-        checkbox_label.grid(row=0, column=2, padx=12)
+        checkbox_label.grid(row=0, column=2, padx=100)
         checkbox_label.image = start_img  # keep ref
 
         def toggle(event, gi=global_index, lbl=checkbox_label):
@@ -321,7 +413,34 @@ delete_btn.config(command=toggle_delete_mode)
 
 # Placeholder functions for other buttons (you can implement similarly)
 def record_habits():
-    messagebox.showinfo("Record", "Record functionality not implemented yet.")
+    """Show a confirmation dialog with all current habits. If confirmed, overwrite CSV."""
+    if not habits:
+        messagebox.showwarning("No habits", "No habits to record.")
+        return
+
+    # Build a formatted list of habits for the confirmation dialog
+    habit_list_text = "\n".join([f"{'✓' if h['done'] else '○'} {h['name']}" for h in habits])
+
+    # Show confirmation dialog
+    msg = f"Are you sure you want to record these habits?\n\n{habit_list_text}"
+    ok = messagebox.askyesno("Confirm Record", msg)
+
+    if ok:
+        try:
+            import csv
+
+            # Overwrite CSV (write mode instead of append)
+            with open(CSV_PATH, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                # Write header
+                writer.writerow(["name", "done"])
+
+                for habit in habits:
+                    writer.writerow([habit["name"], habit["done"]])
+
+            messagebox.showinfo("Success", f"Recorded {len(habits)} habit(s) to CSV.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save habits: {e}")
 
 record_btn.config(command=record_habits)
 
