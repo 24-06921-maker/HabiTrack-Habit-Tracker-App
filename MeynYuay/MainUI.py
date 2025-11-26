@@ -4,7 +4,12 @@ import tkinter.messagebox as messagebox
 import math
 import pandas as pd
 import sqlite3
+import subprocess
+import sys
 from pathlib import Path
+from datetime import datetime
+
+
 
 # First define SCRIPT_DIR
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -17,11 +22,25 @@ CSV_PATH = DATABASE_DIR / "habits.csv"
 JSON_PATH = DATABASE_DIR / "habits.json"
 DB_PATH   = DATABASE_DIR / "habits_pandas.db"
 
-## Debugging: print paths
-print("SCRIPT_DIR =", SCRIPT_DIR)
-print("CSV_PATH   =", CSV_PATH)
-print("JSON_PATH  =", JSON_PATH)
-print("DB_PATH    =", DB_PATH)
+
+## Initialize the SQLite database and create table if not exists
+def init_db():
+    """Create SQLite table to store daily habit progress."""
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS habit_logs (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            name      TEXT NOT NULL,
+            done      INTEGER NOT NULL,   -- 1 = done, 0 = not done
+            logged_at TEXT NOT NULL       -- ISO datetime string
+        )
+    """)
+    conn.commit()
+    conn.close()
+# call it once at startup
+init_db()
+
 
 window = TikiTiki.Tk()
 window.title("Habit Tracker Main UI")
@@ -38,7 +57,7 @@ current_page = 0
 total_pages = max(1, math.ceil(len(habits) / HABITS_PER_PAGE))
 
 # Window Size
-window.geometry("600x750")
+window.geometry("800x900")
 window.resizable(False, False)
 
 # ==== Load images using absolute paths ====
@@ -240,10 +259,19 @@ def render_habits():
             spacer = TikiTiki.Frame(row_frame, width=18, bg="#ECF2FA")
             spacer.grid(row=0, column=0, padx=(0, 8))
 
+        # Adjust font size if the habit text is long so it fits the label
+        name_text = habit.get("name", "")
+        # base size 20, reduce when length exceeds 10 characters
+        if len(name_text) > 10:
+            # decrease by 1 for every 2 extra characters, clamp at 10
+            font_size = max(10, 20 - (len(name_text) - 10) // 2)
+        else:
+            font_size = 20
+
         habit_label = TikiTiki.Label(
             row_frame,
-            text=habit["name"],
-            font=("Helvetica", 20),
+            text=name_text,
+            font=("Helvetica", font_size),
             bg="#ECF2FA"
         )
         habit_label.grid(row=0, column=1, sticky="w")
@@ -357,6 +385,22 @@ add_btn = create_ui_button("Add")
 delete_btn = create_ui_button("Delete")
 record_btn = create_ui_button("Record")
 
+# Back button: return to Login UI (launches login script and closes this window)
+def go_back():
+    login_path = SCRIPT_DIR.parent / "LoginUI" / "New folder" / "build" / "gui.py"
+    if not login_path.exists():
+        messagebox.showerror("Not found", f"Login UI not found at: {login_path}")
+        return
+    try:
+        subprocess.Popen([sys.executable, str(login_path)], cwd=str(login_path.parent))
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to open Login UI: {e}")
+        return
+    window.destroy()
+
+back_btn = create_ui_button("Back")
+back_btn.config(command=go_back)
+
 # --- ADD HABIT: open a Toplevel and add a new habit without closing main window ---
 def add_habit():
     # create Toplevel dialog
@@ -413,34 +457,91 @@ delete_btn.config(command=toggle_delete_mode)
 
 # Placeholder functions for other buttons (you can implement similarly)
 def record_habits():
-    """Show a confirmation dialog with all current habits. If confirmed, overwrite CSV."""
+    """
+    Show a confirmation dialog with all current habits.
+    If confirmed:
+      - log each habit (name, done, datetime) into SQLite
+      - overwrite CSV with current habit states
+    """
     if not habits:
         messagebox.showwarning("No habits", "No habits to record.")
         return
 
     # Build a formatted list of habits for the confirmation dialog
-    habit_list_text = "\n".join([f"{'✓' if h['done'] else '○'} {h['name']}" for h in habits])
+    habit_list_text = "\n".join(
+        [f"{'✓' if h['done'] else '○'} {h['name']}" for h in habits]
+    )
 
     # Show confirmation dialog
     msg = f"Are you sure you want to record these habits?\n\n{habit_list_text}"
     ok = messagebox.askyesno("Confirm Record", msg)
 
-    if ok:
-        try:
-            import csv
+    if not ok:
+        return
 
-            # Overwrite CSV (write mode instead of append)
-            with open(CSV_PATH, "w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                # Write header
-                writer.writerow(["name", "done"])
+    # Use one timestamp for this whole "record" action
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-                for habit in habits:
-                    writer.writerow([habit["name"], habit["done"]])
+    try:
+        # 1) Insert into SQLite habit_logs
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
 
-            messagebox.showinfo("Success", f"Recorded {len(habits)} habit(s) to CSV.")
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to save habits: {e}")
+        for habit in habits:
+            cur.execute(
+                "INSERT INTO habit_logs (name, done, logged_at) VALUES (?, ?, ?)",
+                (habit["name"], int(habit["done"]), now_str)
+            )
+
+        conn.commit()
+        conn.close()
+
+        # 2) Overwrite CSV with current habit list + done status
+        import csv
+        with open(CSV_PATH, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["name", "done"])
+            for habit in habits:
+                writer.writerow([habit["name"], habit["done"]])
+
+        messagebox.showinfo(
+            "Success",
+            f"Recorded {len(habits)} habit(s) to CSV and database."
+        )
+
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to record habits:\n{e}")
+
+    # For Debugging: function to get logs for a specific date
+
+def get_logs_for_date(target_date: str):
+    """
+    Return all habit logs for a specific date.
+    target_date format: 'YYYY-MM-DD'
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT name, done, logged_at
+        FROM habit_logs
+        WHERE date(logged_at) = ?
+        ORDER BY logged_at
+    """, (target_date,))
+
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+# Example: print today's logs in the console
+today_str = "2025-03-15"
+logs = get_logs_for_date(today_str)
+
+print(f"Logs for {today_str}:")
+for name, done, logged_at in logs:
+    status = "Done" if done == 1 else "Not done"
+    print(f"- {name}: {status} at {logged_at}")
+
+
 
 record_btn.config(command=record_habits)
 
