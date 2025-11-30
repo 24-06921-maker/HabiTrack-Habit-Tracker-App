@@ -59,6 +59,7 @@ total_pages = max(1, math.ceil(len(habits) / HABITS_PER_PAGE))
 # Window Size
 window.geometry("800x900")
 window.resizable(False, False)
+window.title("HabiTrack - Habit Tracker App")
 
 # ==== Load images using absolute paths ====
 # Compute the directory where this script is located
@@ -194,7 +195,7 @@ remarks_label = TikiTiki.Label(
     bg="#ECF2FA",
     fg="#2B4D78"
 )
-remarks_label.pack(side="left", padx=(100, 0))
+remarks_label.pack(side="right", padx=(0, 70))
 
 # Habits Frame (where rows will be drawn)
 habit_list_frame = TikiTiki.Frame(main_frame, bg="#ECF2FA")
@@ -203,7 +204,7 @@ habit_list_frame.pack(fill="x", padx=20, pady=10)
 # Delete mode state
 delete_mode = False
 
-# --- Functions to render habits and pagination ---
+#Functions to render habits and pagination
 
 def render_habits():
     """Clear and redraw habit rows for the current page."""
@@ -264,7 +265,7 @@ def render_habits():
         # base size 20, reduce when length exceeds 10 characters
         if len(name_text) > 10:
             # decrease by 1 for every 2 extra characters, clamp at 10
-            font_size = max(10, 20 - (len(name_text) - 10) // 2)
+            font_size = max(15, 25 - (len(name_text) - 15) // 2)
         else:
             font_size = 20
 
@@ -358,7 +359,7 @@ right_btn.bind("<Button-1>", go_next)
 render_habits()
 
 # Buttons
-# --- Bottom Button Frame ---
+#  Bottom Button Frame
 button_frame = TikiTiki.Frame(main_frame, bg="#ECF2FA")
 button_frame.pack(pady=20)
 
@@ -387,7 +388,7 @@ record_btn = create_ui_button("Record")
 
 # Back button: return to Login UI (launches login script and closes this window)
 def go_back():
-    login_path = SCRIPT_DIR.parent / "LoginUI" / "New folder" / "build" / "gui.py"
+    login_path = SCRIPT_DIR.parent / "LoginUI" / "New folder" / "build" / "Login.py"
     if not login_path.exists():
         messagebox.showerror("Not found", f"Login UI not found at: {login_path}")
         return
@@ -401,7 +402,7 @@ def go_back():
 back_btn = create_ui_button("Back")
 back_btn.config(command=go_back)
 
-# --- ADD HABIT: open a Toplevel and add a new habit without closing main window ---
+#  ADD HABIT: open a Toplevel and add a new habit without closing main window 
 def add_habit():
     # create Toplevel dialog
     add_win = TikiTiki.Toplevel(window)
@@ -483,12 +484,13 @@ def record_habits():
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     try:
-        # 1) Insert into SQLite habit_logs
+        # 1) SQLITE Insert Function
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
 
         for habit in habits:
             cur.execute(
+                ## SQL Insert statement
                 "INSERT INTO habit_logs (name, done, logged_at) VALUES (?, ?, ?)",
                 (habit["name"], int(habit["done"]), now_str)
             )
@@ -512,7 +514,11 @@ def record_habits():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to record habits:\n{e}")
 
-    # For Debugging: function to get logs for a specific date
+
+
+## Debugging Purposes
+
+# For Debugging: function to get logs for a specific date
 
 def get_logs_for_date(target_date: str):
     """
@@ -532,6 +538,7 @@ def get_logs_for_date(target_date: str):
     rows = cur.fetchall()
     conn.close()
     return rows
+
 # Example: print today's logs in the console
 today_str = "2025-03-15"
 logs = get_logs_for_date(today_str)

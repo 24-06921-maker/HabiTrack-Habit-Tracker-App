@@ -12,7 +12,8 @@ OUTPUT_PATH = Path(__file__).parent
 ASSETS_PATH = OUTPUT_PATH / "assets" / "frame0"
 
 
-def relative_to_assets(path: str) -> Path:
+## Ensure asset path is correct
+def relative_to_assets(path: str) -> Path: 
     return ASSETS_PATH / Path(path)
 
 def open_main():
@@ -27,6 +28,30 @@ def open_main():
     Popen = subprocess.Popen
     Popen([sys.executable, str(mainui_path)], cwd=str(mainui_cwd))
 
+
+def open_habit():
+    window.destroy()         # close login window
+
+    #Launch Habits as a separate process
+    # Compute path relative to this script (project root is 3 levels up: build -> New folder -> LoginUI -> Habit Track)
+    script_dir = Path(__file__).resolve().parent.parent.parent.parent
+    habitsui_path = script_dir / "Habits_" / "Habits.py"
+    habitsui_cwd = script_dir / "Habits_"
+
+    Popen = subprocess.Popen
+    Popen([sys.executable, str(habitsui_path)], cwd=str(habitsui_cwd))
+
+
+def open_progress():
+
+    # Launch ProgressUI as a separate process
+    # Compute path relative to this script (project root is 3 levels up: build -> New folder -> LoginUI -> Habit Track)
+    script_dir = Path(__file__).resolve().parent.parent.parent.parent
+    progress_path = script_dir / "MeynYuay" / "ProgressUI.py"
+    progress_cwd = script_dir / "MeynYuay"
+
+    Popen = subprocess.Popen
+    Popen([sys.executable, str(progress_path)], cwd=str(progress_cwd))
 
 window = Tk()
 
@@ -45,50 +70,57 @@ canvas = Canvas(
 )
 
 canvas.place(x = 0, y = 0)
-button_image_1 = PhotoImage(
+login_img = PhotoImage(
     file=relative_to_assets("button_1.png"))
-button_1 = Button(
-    image=button_image_1,
+
+
+login_button = Button(
+    image=login_img,
     borderwidth=0,
     highlightthickness=0,
     command=open_main,
     relief="flat"
 )
-button_1.place(
+login_button.place(
     x=150.0,
     y=150.0,
     width=300.0,
     height=72.0
 )
 
-button_image_2 = PhotoImage(
+
+## Button for Habits Button
+
+habit_img = PhotoImage(
     file=relative_to_assets("button_2.png"))
-button_2 = Button(
-    image=button_image_2,
+habit_btn = Button(
+    image=habit_img,
     borderwidth=0,
     highlightthickness=0,
-    command=lambda: print("button_2 clicked"),
+    command=open_habit,
     relief="flat"
 )
-button_2.place(
+habit_btn.place(
     x=150.0,
-    y=404.0,
+    y=277.0,
     width=300.0,
     height=72.0
 )
 
-button_image_3 = PhotoImage(
+
+## Progress Button
+progress_Img = PhotoImage(
     file=relative_to_assets("button_3.png"))
-button_3 = Button(
-    image=button_image_3,
+progress_btn = Button(
+    image=progress_Img,
     borderwidth=0,
     highlightthickness=0,
-    command=lambda: print("button_3 clicked"),
+    command=open_progress,
     relief="flat"
 )
-button_3.place(
+progress_btn.place(
     x=150.0,
-    y=277.0,
+    y=404.0,
     width=300.0,
     height=72.0
 )

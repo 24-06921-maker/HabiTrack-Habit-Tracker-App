@@ -1,6 +1,21 @@
 name,done
-New Habit,True
-Another HABIT,True
+New Habit,False
+Another HABIT,False
 Read a Book (30 Minutes),True
 Jogging (1 Hour),True
-TengEnang,True
+Meditation (15 Minutes),True
+Practice Guitar (45 Minutes),True
+Workout (1 Hour),True
+Learn a New Language (30 Minutes),True
+Cook a Healthy Meal,True
+Drink 8 Glasses of Water,True
+Study for Exams (2 Hours),True
+Walk the Dog (30 Minutes),True
+Clean the House,True
+Write in Journal (15 Minutes),True
+Yoga Session (1 Hour),True
+Read News Articles (20 Minutes),True
+Practice Coding (1 Hour),False
+Call a Friend or Family Member,False
+Plan the Week Ahead,False
+Code Java (30 Minutes),False
