@@ -3,6 +3,7 @@ import tkinter.ttk as ttk
 from datetime import datetime, timedelta
 import sqlite3
 from pathlib import Path
+import matplotlib.pyplot as plt
 import calendar
 
 # Path to the database
@@ -11,8 +12,10 @@ DB_PATH = SCRIPT_DIR / "Database" / "habits_pandas.db"
 
 
 class ProgressUI:
+    ## Constructor for ProgressUI
     def __init__(self, parent=None, day_click_callback=None):
-        self.window = tk.Toplevel(parent) if parent else tk.Tk()
+        ## Create Toplevel if parent provided, else main Tk window
+        self.window = tk.Toplevel(parent) if parent else tk.Tk() 
         self.window.title("Habit Progress - Monthly View")
         self.window.geometry("900x700")
         self.window.resizable(True, True)
@@ -47,6 +50,8 @@ class ProgressUI:
         nav_frame = tk.Frame(header_frame, bg="#ECF2FA")
         nav_frame.pack(side="right")
         
+
+        ## Label to show current month and year
         self.month_label = tk.Label(
             nav_frame,
             text="",
@@ -59,6 +64,7 @@ class ProgressUI:
         prev_btn = tk.Button(
             nav_frame,
             text="← Previous",
+            ## Bind to previous month function
             command=self.prev_month,
             font=("Helvetica", 10),
             bg="#AFCBFF",
@@ -66,11 +72,14 @@ class ProgressUI:
             relief="flat",
             cursor="hand2"
         )
+        ## Pack the button to the left with padding
         prev_btn.pack(side="left", padx=5)
         
+        ## Next month button
         next_btn = tk.Button(
             nav_frame,
             text="Next →",
+            ## Bind to next month function
             command=self.next_month,
             font=("Helvetica", 10),
             bg="#AFCBFF",
@@ -80,7 +89,7 @@ class ProgressUI:
         )
         next_btn.pack(side="left", padx=5)
         
-        # Separator
+        # Separator line below header
         separator = ttk.Separator(self.window, orient="horizontal")
         separator.pack(fill="x", padx=20, pady=(0, 10))
         
@@ -123,6 +132,7 @@ class ProgressUI:
         
         # Bottom: Habit breakdown
         breakdown_label = tk.Label(
+            ## self.window refers to the main window
             self.window,
             text="Habit Breakdown",
             font=("Helvetica", 14, "bold"),
@@ -149,11 +159,20 @@ class ProgressUI:
         self.breakdown_text.pack(fill="both", expand=True)
         scrollbar.config(command=self.breakdown_text.yview)
     
+    
+    ## Load data for the current month using database queries
     def load_monthly_data(self):
         """Load and display data for the current month."""
+        ## Display the calendar
         self.display_calendar()
+        ## Display statistics
         self.display_statistics()
+        ## Display habit breakdow
         self.display_habit_breakdown()
+        ## Display habit streaks in terminal
+        self.display_habit_streaks()
+        ## Display monthly completion pie chart
+        self.display_monthly_pie_chart()
     
     def display_calendar(self):
         """Display calendar with colored days based on habit logging."""
@@ -232,28 +251,31 @@ class ProgressUI:
 
     def handle_day_click(self, date_str: str):
         """Handle click on a calendar day."""
-        if self.day_click_callback:
-            try:
-                self.day_click_callback(date_str)
-                return
-            except Exception as e:
-                print(f"Error in day_click_callback: {e}")
-
-        # Default behavior: show an internal detail window
-        self.open_day_detail(date_str)
+        rows = self.get_logs_for_specific_date(date_str)
+        
+        if not rows:
+            print(f"No logs for {date_str}")
+            return
+        
+        # Count completed vs incomplete
+        completed = sum(1 for row in rows if row[2] == 1 or row[2] is True)
+        total = len(rows)
+        
 
     def get_logs_for_specific_date(self, date_str: str):
         """Return all logs for a given date (YYYY-MM-DD)."""
         try:
             conn = sqlite3.connect(DB_PATH)
             cur = conn.cursor()
+
             cur.execute("""
                 SELECT id, name, done, logged_at
                 FROM habit_logs
                 WHERE DATE(logged_at) = ?
                 ORDER BY logged_at
             """, (date_str,))
-            rows = cur.fetchall()
+
+
             conn.close()
             return rows
         except Exception as e:
@@ -474,6 +496,163 @@ class ProgressUI:
             print(f"Error getting habit stats: {e}")
             return {}
     
+    def calculate_habit_streaks(self):
+        """Calculate current streak for each habit (consecutive days with completion = 1)."""
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            cur = conn.cursor()
+            
+            # Get all habits and their logs, ordered by name and date
+            cur.execute("""
+                SELECT DISTINCT name
+                FROM habit_logs
+                ORDER BY name
+            """)
+
+                    
+            habits = [row[0] for row in cur.fetchall()]
+            streaks = {}
+            
+            for habit in habits:
+                # Get all dates this habit was logged and completed, ordered by date
+                cur.execute("""
+                    SELECT DATE(logged_at) as log_date
+                    FROM habit_logs
+                    WHERE name = ? AND done = 1
+                    ORDER BY logged_at DESC
+                """, (habit,))
+                
+                dates = [datetime.strptime(row[0], "%Y-%m-%d").date() for row in cur.fetchall()]
+                
+                if not dates:
+                    streaks[habit] = 0
+                    continue
+                
+                # Calculate current streak (from today backwards)
+                current_streak = 0
+                today = datetime.now().date()
+                expected_date = today
+                
+                for log_date in dates:
+                    if log_date == expected_date:
+                        current_streak += 1
+                        expected_date = expected_date - timedelta(days=1)
+                    else:
+                        break
+                
+                streaks[habit] = current_streak
+            
+            conn.close()
+            return streaks
+        except Exception as e:
+            print(f"Error calculating habit streaks: {e}")
+            return {}
+    
+
+    ## For Debugging Purposes: Display habit streaks in console
+    def display_habit_streaks(self):
+        """Display streak information for each habit in console."""
+        streaks = self.calculate_habit_streaks()
+        
+        if not streaks:
+            print("No habits found.")
+            return
+        
+        print("\n" + "="*60)
+        print("HABIT STREAKS")
+        print("="*60)
+        
+        for habit in sorted(streaks.keys()):
+            streak = streaks[habit]
+            flame = "🔥" * streak if streak > 0 else "❌"
+            print(f"{habit:<30} {streak:>3} days  {flame}")
+        
+        print("="*60 + "\n")
+    
+    def display_monthly_pie_chart(self):
+        """Display monthly completion pie chart with habit streaks and completion percentage."""
+        habit_stats = self.get_habit_stats() ## Get habit stats for the month
+        
+        if not habit_stats:
+            print("No habit data for this month.")
+            return
+        
+        # Calculate overall monthly statistics
+        total_completed = sum(stat['completed'] for stat in habit_stats.values())
+        total_logged = sum(stat['total'] for stat in habit_stats.values())
+        overall_completion = (total_completed / total_logged * 100) if total_logged > 0 else 0
+        
+        # Create figure with two subplots
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 7))
+        fig.suptitle(f"Monthly Habit Progress - {self.current_date.strftime('%B %Y')}", 
+                     fontsize=16, fontweight='bold')
+        
+        # Left pie chart: Overall completion rate
+        completion_labels = [f'Completed\n({total_completed}/{total_logged})', 
+                            f'Not Completed\n({total_logged - total_completed}/{total_logged})']
+        completion_sizes = [total_completed, total_logged - total_completed]
+        completion_colors = ['#90EE90', '#FFB6C1']  # Green and Light Red
+        
+        wedges1, texts1, autotexts1 = ax1.pie(
+            completion_sizes,
+            labels=completion_labels,
+            colors=completion_colors,
+            autopct='%1.1f%%',
+            shadow=True,
+            startangle=90,
+            textprops={'fontsize': 11, 'weight': 'bold'}
+        )
+        
+        for autotext in autotexts1:
+            autotext.set_color('white')
+            autotext.set_fontsize(10)
+            autotext.set_weight('bold')
+        
+        ax1.set_title(f"Overall Completion Rate\n{overall_completion:.1f}%", 
+                     fontsize=12, fontweight='bold', pad=15)
+        
+        # Right pie chart: Per-habit completion breakdown
+        habit_names = []
+        habit_rates = []
+        habit_colors = []
+        
+        for habit in sorted(habit_stats.keys(), 
+                           key=lambda x: habit_stats[x]['completion_rate'], 
+                           reverse=True):
+            stats = habit_stats[habit]
+            rate = stats['completion_rate']
+            # Color based on completion rate
+            if rate == 100:
+                color = '#90EE90'  # Green
+            elif rate >= 50:
+                color = '#FFD700'  # Yellow
+            else:
+                color = '#FFB6C1'  # Light Red
+            
+            habit_names.append(f"{habit}\n{rate:.0f}%")
+            habit_rates.append(stats['completed'])
+            habit_colors.append(color)
+        
+        wedges2, texts2, autotexts2 = ax2.pie(
+            habit_rates,
+            labels=habit_names,
+            colors=habit_colors,
+            autopct='%1.0f days',
+            shadow=True,
+            startangle=90,
+            textprops={'fontsize': 9, 'weight': 'bold'}
+        )
+        
+        for autotext in autotexts2:
+            autotext.set_color('white')
+            autotext.set_fontsize(9)
+            autotext.set_weight('bold')
+        
+        ax2.set_title("Per-Habit Completion", fontsize=12, fontweight='bold', pad=15)
+        
+        plt.tight_layout()
+        plt.show()
+    
     def prev_month(self):
         """Navigate to previous month."""
         self.current_date = self.current_date - timedelta(days=1)
@@ -484,6 +663,8 @@ class ProgressUI:
     def next_month(self):
         """Navigate to next month."""
         # Go to next month
+        ## Next month logic
+        ## If current month is December, increment year and set month to January
         if self.current_date.month == 12:
             self.current_date = self.current_date.replace(year=self.current_date.year + 1, month=1)
         else:
@@ -509,6 +690,8 @@ def open_progress_ui(parent=None, day_click_callback=None):
     ProgressUI(parent, day_click_callback=day_click_callback)
 
 
+
+## Make sure this file can be run standalone for testing
 if __name__ == "__main__":
     root = tk.Tk()
     root.withdraw()  # Hide root window
