@@ -46,7 +46,7 @@ Habit Track/
 │   ├── Habits.py                     # Habit creation interface
 │   └── Database/
 │
-└── README.md                         # This file
+└── README.md                         
 ```
 
 ## Technology Stack
@@ -82,9 +82,9 @@ Habit Track/
    ```
 
 2. **From the login screen, choose**:
-   - **Main UI** - Manage and log your daily habits
+   - **Start** - Manage and log your daily habits
    - **Habits** - Create and configure new habits
-   - **Progress** - View analytics and monthly progress
+   - **Progress** - View visual charts and monthly progress
 
 3. **Start tracking!** Add habits, log daily completion, and watch your progress grow
 
