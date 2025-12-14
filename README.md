@@ -2,7 +2,7 @@
 
 ## Introduction
 
-**HabiTrack** is a comprehensive habit tracking application designed to help you build, monitor, and maintain positive daily habits. Whether you're looking to exercise more, read regularly, code consistently, or develop any other habit, HabiTrack provides an intuitive interface and powerful visualization tools to keep you accountable and motivated.
+**HabiTrack** is a comprehensive GUI-based habit tracking applicationa built with Python. This project encourage users to create, monitor, and maintain positive daily habits through an user-friendly interface and powerful visual charts. Whether you're building a fitness routine, learning to code consistently, reading daily, or developing any other habit, HabiTrack helps you stay accountable and motivated by providing real-time progress insights and streak tracking.
 
 ## Overview
 
