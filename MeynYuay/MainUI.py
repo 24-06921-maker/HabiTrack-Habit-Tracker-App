@@ -19,7 +19,6 @@ DATABASE_DIR = SCRIPT_DIR / "Database"
 DATABASE_DIR.mkdir(exist_ok=True)  # auto-create folder if missing
 
 CSV_PATH = DATABASE_DIR / "habits.csv"
-JSON_PATH = DATABASE_DIR / "habits.json"
 DB_PATH   = DATABASE_DIR / "habits_pandas.db"
 
 
@@ -58,7 +57,7 @@ total_pages = max(1, math.ceil(len(habits) / HABITS_PER_PAGE))
 
 # Window Size
 window.geometry("800x900")
-window.resizable(False, False)
+window.resizable(False, True)
 window.title("HabiTrack - Habit Tracker App")
 
 # ==== Load images using absolute paths ====
@@ -404,7 +403,7 @@ back_btn.config(command=go_back)
 
 #  ADD HABIT: open a Toplevel and add a new habit without closing main window 
 def add_habit():
-    # create Toplevel dialog
+    # create TikiTiki.Toplevel dialog
     add_win = TikiTiki.Toplevel(window)
     add_win.title("Add Habit")
     add_win.geometry("380x200")
@@ -516,37 +515,37 @@ def record_habits():
 
 
 
-## Debugging Purposes
+# ## Debugging Purposes
 
-# For Debugging: function to get logs for a specific date
+# # For Debugging: function to get logs for a specific date
 
-def get_logs_for_date(target_date: str):
-    """
-    Return all habit logs for a specific date.
-    target_date format: 'YYYY-MM-DD'
-    """
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
+# def get_logs_for_date(target_date: str):
+#     """
+#     Return all habit logs for a specific date.
+#     target_date format: 'YYYY-MM-DD'
+#     """
+#     conn = sqlite3.connect(DB_PATH)
+#     cur = conn.cursor()
 
-    cur.execute("""
-        SELECT name, done, logged_at
-        FROM habit_logs
-        WHERE date(logged_at) = ?
-        ORDER BY logged_at
-    """, (target_date,))
+#     cur.execute("""
+#         SELECT name, done, logged_at
+#         FROM habit_logs
+#         WHERE date(logged_at) = ?
+#         ORDER BY logged_at
+#     """, (target_date,))
 
-    rows = cur.fetchall()
-    conn.close()
-    return rows
+#     rows = cur.fetchall()
+#     conn.close()
+#     return rows
 
-# Example: print today's logs in the console
-today_str = "2025-03-15"
-logs = get_logs_for_date(today_str)
+# # Example: print today's logs in the console
+# today_str = "2025-03-15"
+# logs = get_logs_for_date(today_str)
 
-print(f"Logs for {today_str}:")
-for name, done, logged_at in logs:
-    status = "Done" if done == 1 else "Not done"
-    print(f"- {name}: {status} at {logged_at}")
+# print(f"Logs for {today_str}:")
+# for name, done, logged_at in logs:
+#     status = "Done" if done == 1 else "Not done"
+#     print(f"- {name}: {status} at {logged_at}")
 
 
 

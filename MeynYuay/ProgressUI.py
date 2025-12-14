@@ -169,8 +169,7 @@ class ProgressUI:
         self.display_statistics()
         ## Display habit breakdow
         self.display_habit_breakdown()
-        ## Display habit streaks in terminal
-        self.display_habit_streaks()
+
         ## Display monthly completion pie chart
         self.display_monthly_pie_chart()
     
@@ -251,16 +250,7 @@ class ProgressUI:
 
     def handle_day_click(self, date_str: str):
         """Handle click on a calendar day."""
-        rows = self.get_logs_for_specific_date(date_str)
-        
-        if not rows:
-            print(f"No logs for {date_str}")
-            return
-        
-        # Count completed vs incomplete
-        completed = sum(1 for row in rows if row[2] == 1 or row[2] is True)
-        total = len(rows)
-        
+        pass
 
     def get_logs_for_specific_date(self, date_str: str):
         """Return all logs for a given date (YYYY-MM-DD)."""
@@ -547,27 +537,7 @@ class ProgressUI:
         except Exception as e:
             print(f"Error calculating habit streaks: {e}")
             return {}
-    
 
-    ## For Debugging Purposes: Display habit streaks in console
-    def display_habit_streaks(self):
-        """Display streak information for each habit in console."""
-        streaks = self.calculate_habit_streaks()
-        
-        if not streaks:
-            print("No habits found.")
-            return
-        
-        print("\n" + "="*60)
-        print("HABIT STREAKS")
-        print("="*60)
-        
-        for habit in sorted(streaks.keys()):
-            streak = streaks[habit]
-            flame = "🔥" * streak if streak > 0 else "❌"
-            print(f"{habit:<30} {streak:>3} days  {flame}")
-        
-        print("="*60 + "\n")
     
     def display_monthly_pie_chart(self):
         """Display monthly completion pie chart with habit streaks and completion percentage."""
@@ -624,20 +594,24 @@ class ProgressUI:
             # Color based on completion rate
             if rate == 100:
                 color = '#90EE90'  # Green
+            elif rate > 75:
+                color = '#FFB6C1'  # Light Red (75% to 100%)
             elif rate >= 50:
-                color = '#FFD700'  # Yellow
+                color = '#FFD700'  # Yellow (50% to 75%)
+            elif rate > 0:
+                color = '#FF8C00'  # Dark Orange (0% to 50%)
             else:
-                color = '#FFB6C1'  # Light Red
+                color = '#FF0000'  # Red (0% completion)
             
             habit_names.append(f"{habit}\n{rate:.0f}%")
-            habit_rates.append(stats['completed'])
+            habit_rates.append(rate)  # Use completion rate instead of completed count
             habit_colors.append(color)
         
         wedges2, texts2, autotexts2 = ax2.pie(
             habit_rates,
             labels=habit_names,
             colors=habit_colors,
-            autopct='%1.0f days',
+            autopct='%1.1f%%',
             shadow=True,
             startangle=90,
             textprops={'fontsize': 9, 'weight': 'bold'}
